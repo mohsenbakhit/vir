@@ -1,6 +1,8 @@
 //
 // Created by Mohsen Bakhit on 2024-03-05.
 //
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <termios.h>
@@ -20,13 +22,15 @@ void EnableRawMode() {
     atexit(DisableRawMode);
     struct termios raw = terminal_settn;
 
-    terminal_settn.c_lflag &= ~(ECHO | ICANON);
+    terminal_settn.c_lflag &= ~(ECHO | ICANON | ISIG);
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
 int main() {
     EnableRawMode();
     char input;
-    while (read(STDIN_FILENO, &input, 1) == 1 && input != 'q');
+    while (read(STDIN_FILENO, &input, 1) == 1 && input != 'q') {
+
+    }
     return 0;
 }
