@@ -1,16 +1,22 @@
 //
 // Created by Mohsen Bakhit on 2024-03-05.
-//
+// includes
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <termios.h>
-struct trow {
-    char* text;
-};
+
+// data
 
 struct termios terminal_settn;
+
+// terminal
+void shutdown(const char* c) {
+    perror(c);
+    exit(1);
+}
 
 void DisableRawMode() {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &terminal_settn);
@@ -31,6 +37,8 @@ void EnableRawMode() {
     raw.c_cc[VTIME] = 1;
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
+
+// init
 
 int main() {
     EnableRawMode();
