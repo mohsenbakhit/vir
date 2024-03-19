@@ -1,59 +1,99 @@
 //
 // Created by Mohsen Bakhit on 2024-03-05.
-// includes
+
+/*** includes ***/
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
 #include <termios.h>
+#include <unistd.h>
 
-// data
+/*** defines ***/
 
-struct termios terminal_settn;
+#define CTRL_KEY_MASK(k) ((k) & 0b00011111)
 
-// terminal
-void shutdown(const char* c) {
-    perror(c);
-    exit(1);
+/*** data ***/
+
+struct termios orig_termios;
+
+// struct editorConfig E;
+/*** terminal ***/
+void shutdown(const char *c) {
+  perror(c);
+  exit(1);
 }
 
 void DisableRawMode() {
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &terminal_settn) == -1) {
-        shutdown("tcsetattr");
-    }
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1) {
+    shutdown("tcsetattr");
+  }
 }
 
 void EnableRawMode() {
-   if (tcgetattr(STDIN_FILENO, &terminal_settn) == -1) shutdown("tcgetattr");
-    atexit(DisableRawMode);
+  if (tcgetattr(STDIN_FILENO, &orig_termios) == -1)
+    shutdown("tcgetattr");
+  atexit(DisableRawMode);
 
-    struct termios raw = terminal_settn;
-    terminal_settn.c_iflag = ~(IGNBRK | BRKINT | PARMRK | ISTRIP
-                           | INLCR | IGNCR | ICRNL | IXON);
-    terminal_settn.c_oflag &= ~OPOST;
-    terminal_settn.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-    terminal_settn.c_cflag &= ~(CSIZE | PARENB);
-    terminal_settn.c_cflag |= (CS8);
-    raw.c_cc[VMIN] = 0;
-    raw.c_cc[VTIME] = 1;
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) shutdown("tcsetattr");
+  struct termios raw = orig_termios;
+  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+  raw.c_oflag &= ~(OPOST);
+  raw.c_cflag |= (CS8);
+  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_cc[VMIN] = 0;
+  raw.c_cc[VTIME] = 1;
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
+    shutdown("tcsetattr");
 }
 
-// init
+char EditorKeyRead() {
+  char input;
+  int num_read;
+  while ((num_read = read(STDIN_FILENO, &input, 1)) != 1) {
+    if (num_read == -1 && errno != EAGAIN)
+      shutdown("read");
+  }
+  return input;
+}
+
+/*** input ***/
+
+void ProcessKeyPress() {
+  char c = EditorKeyRead();
+
+  // Process specific keys and combinations
+
+  switch (c) {
+  case CTRL_KEY_MASK('q'):
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    exit(0);
+    break;
+  }
+}
+
+/*** output ***/
+
+void EditorDrawRows() {
+  for (int t = 0; t < 24; t++) {
+    write(STDOUT_FILENO, "~\r\n", 3);
+  }
+}
+void EditorRefreshScreen() {
+  write(STDOUT_FILENO, "\x1b[2J", 4);
+  write(STDOUT_FILENO, "\x1b[H", 3);
+  EditorDrawRows();
+  write(STDOUT_FILENO, "\x1b[H", 3);
+}
+
+/*** init ***/
 
 int main() {
-    EnableRawMode();
+  EnableRawMode();
 
-    while (1) {
-        char input = '\0';
-        if (read(STDIN_FILENO, &input, 1) == -1) shutdown("read");
-        if (iscntrl(input)) {
-            printf("%d\r\n", input);
-        } else {
-            printf("%d ('%c')\r\n", input, input);
-        }
-        if (input == 'q') break;
-    }
-    return 0;
+  while (1) {
+    EditorRefreshScreen();
+    ProcessKeyPress();
+  }
+  return 0;
 }
