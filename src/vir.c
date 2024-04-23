@@ -119,6 +119,9 @@ int main(int argc, char *argv[]){
       if (input == 'w') {
         write_buffer(buffer);
       }
+      if (input == "q") {
+        return 1;
+      }
     } else if (input == ESCAPE_KEY && mode == 1) {
       mode = 0;
     } else if (mode == 1) {
