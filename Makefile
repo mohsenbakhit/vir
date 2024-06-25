@@ -1,4 +1,4 @@
-vir: src/vir.c
-	cc src/vir.c -o vir -lncurses
+vir: vir.c
+	$(CC) vir.c -o vir -Wall -Wextra -pedantic -std=c99
 clean:
 	rm vir
