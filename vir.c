@@ -15,19 +15,19 @@
 #define CTRL_KEY(k) ((k) & 0x1f)
 // data structures
 struct termios orig_termios;
-
+uint8_t mode = NORMAL_MODE;
 // terminal
 void die(const char *s) {
 	perror(s);
 	exit(EXIT_FAILURE);
 }
 
-void disable_raw_mode() {
+void disable_raw_mode(void) {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios) == -1)
 		die("tcsetattr");
 }
 
-void enable_raw_mode() {
+void enable_raw_mode(void) {
 	if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");
 	atexit(disable_raw_mode);
 
@@ -41,31 +41,44 @@ void enable_raw_mode() {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-// main
-
-int main(){
-	enable_raw_mode();
-
+char editor_key_read(void) {
+	int bytes_read;
 	char c;
-	uint8_t mode = NORMAL_MODE;
-	while (1) {
-		c = '\0';
-		if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN) die("read");
-		if (mode == INSERT_MODE) {
-			if (c == ESC) mode = NORMAL_MODE;
+	while ((bytes_read = read(STDIN_FILENO, &c, 1) == -1) && errno != EAGAIN) {
+		if (bytes_read == -1 && errno != EAGAIN) die("read");
+	}
+	return c;
+}
+
+void editor_process_key_press(void) {
+	char c = editor_key_read();
+
+	switch(c) {
+		if (mode == NORMAL_MODE) {
+			if (c == 'i') mode = INSERT_MODE;
+			if (c == CTRL_KEY('x')) {
+				exit(EXIT_SUCCESS);
+			}
+		} else if (mode == INSERT_MODE) {
+			if (c == ESC) {
+				mode = NORMAL_MODE;
+				break;
+			}
 			if (iscntrl(c)) {
 				printf("%d \r\n", c);
 			} else {
 				printf("%d ('%c')", c, c);
 			}
 		}
-		if (c == 'i' && mode == NORMAL_MODE) {
-		
-			mode = INSERT_MODE;
-		}
-		if (c == CTRL_KEY('q') && mode == NORMAL_MODE){
-			break;
-		}
+	}
+}
+// main
+
+int main(void){
+	enable_raw_mode();
+	
+	while (1) {
+		editor_process_key_press();
 	}
 	return 0;
 }
